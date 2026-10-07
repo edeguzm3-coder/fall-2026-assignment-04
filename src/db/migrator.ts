@@ -1,8 +1,31 @@
 import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { Kysely, PostgresDialect } from 'kysely';
-import { Migrator, FileMigrationProvider } from 'kysely/migration';
+import { Migrator, type Migration, type MigrationProvider } from 'kysely/migration';
 import pg from 'pg';
+
+// Like Kysely's FileMigrationProvider, but imports via file:// URLs so absolute
+// Windows paths (C:\...) work with Node's ESM loader.
+class EsmFileMigrationProvider implements MigrationProvider {
+  constructor(private readonly migrationFolder: string) {}
+
+  async getMigrations(): Promise<Record<string, Migration>> {
+    const migrations: Record<string, Migration> = {};
+    const files = await fs.readdir(this.migrationFolder);
+
+    for (const fileName of files) {
+      if (!/\.(ts|js|mjs|mts)$/.test(fileName) || fileName.endsWith('.d.ts')) {
+        continue;
+      }
+      const fileUrl = pathToFileURL(path.join(this.migrationFolder, fileName));
+      const migration = await import(fileUrl.href);
+      migrations[fileName.replace(/\.[^.]+$/, '')] = migration;
+    }
+
+    return migrations;
+  }
+}
 
 async function migrate() {
   const db = new Kysely<any>({
@@ -19,11 +42,9 @@ async function migrate() {
 
   const migrator = new Migrator({
     db,
-    provider: new FileMigrationProvider({
-      fs,
-      path,
-      migrationFolder: path.join(import.meta.dirname, 'migrations'),
-    }),
+    provider: new EsmFileMigrationProvider(
+      path.join(import.meta.dirname, 'migrations')
+    ),
   });
 
   const direction = process.argv[2];

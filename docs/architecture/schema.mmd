@@ -1,0 +1,63 @@
+erDiagram
+    USERS ||--o| BORROWERS : "has borrower profile"
+    GENRES ||--o{ BOOKS : "categorizes"
+    BOOKS ||--o{ BOOK_AUTHORS : "written by"
+    AUTHORS ||--o{ BOOK_AUTHORS : "writes"
+    BORROWERS ||--o{ LOANS : "takes out"
+    BOOKS ||--o{ LOANS : "is loaned in"
+
+    USERS {
+        serial id PK
+        varchar(255) email UK "not null"
+        varchar(255) name
+        timestamp created_at "not null, default now"
+    }
+
+    BORROWERS {
+        serial id PK
+        int user_id FK, UK "one borrower profile per user"
+        varchar(50) card_number UK "not null, library card"
+        varchar(20) phone
+        varchar(255) address
+        int max_active_loans "not null, default 5"
+        timestamp created_at "not null, default now"
+    }
+
+    GENRES {
+        serial id PK
+        varchar(100) name UK "not null"
+        text description
+    }
+
+    AUTHORS {
+        serial id PK
+        varchar(255) first_name "not null"
+        varchar(255) last_name "not null"
+        text bio
+        date birth_date
+    }
+
+    BOOKS {
+        serial id PK
+        int genre_id FK "each book has exactly one genre"
+        varchar(255) title "not null"
+        varchar(13) isbn UK "not null"
+        int published_year
+        int total_copies "not null, default 1"
+        int available_copies "not null, default 1"
+        timestamp created_at "not null, default now"
+    }
+
+    BOOK_AUTHORS {
+        int book_id PK, FK
+        int author_id PK, FK
+    }
+
+    LOANS {
+        serial id PK
+        int borrower_id FK
+        int book_id FK
+        timestamp loaned_at "not null, default now"
+        date due_date "not null, 14 days after loaned_at"
+        timestamp returned_at "null while the book is still out"
+    }
